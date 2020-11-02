@@ -12,7 +12,7 @@ buildscript {
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.4.10'
     id 'io.codearte.nexus-staging' version '0.21.2'
-    id 'hextant-library' version '0.1-SNAPSHOT'
+    id 'com.github.nkb03.hextant-library' version '0.1-SNAPSHOT'
 }
 
 group 'com.github.nkb03'
@@ -26,7 +26,6 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
     implementation 'org.jetbrains.kotlin:kotlin-reflect'
     implementation 'com.github.nkb03:kollektion:1.0-SNAPSHOT'
     compileOnly 'com.github.nkb03:reaktive:1.0-SNAPSHOT'
@@ -35,11 +34,11 @@ dependencies {
     testImplementation 'org.spekframework.spek2:spek-runner-junit5:2.0.9'
 }
 
-sourceCompatibility = 1.8
+sourceCompatibility = 11
 
 compileKotlin {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = "11"
 }
 compileTestKotlin {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = "11"
 }
