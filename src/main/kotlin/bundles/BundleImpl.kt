@@ -9,81 +9,66 @@ import reaktive.event.event
 import reaktive.impl.WeakReactive
 import reaktive.value.*
 
-internal class BundleImpl : Bundle {
+@Suppress("UNCHECKED_CAST")
+@PublishedApi internal class BundleImpl() : Bundle {
+    constructor(entries: Iterable<BundleEntry<*>>) : this() {
+        for ((p, v) in entries) properties[p] = v
+    }
+
     private val change = event<BundleChange<*>>()
     override val changed: EventStream<BundleChange<*>>
         get() = change.stream
-    private val properties = mutableMapOf<Property<*, *, *>, Any?>()
-    private val managed = mutableMapOf<ReactiveProperty<*, *, *>, WeakReactive<ReactiveVariable<Any?>>>()
+    private val properties = mutableMapOf<Property<*, *>, Any>()
+    private val managed = mutableMapOf<Property<*, *>, WeakReactive<ReactiveVariable<Any>>>()
 
-    override val entries: Sequence<Pair<Property<*, *, *>, Any?>>
-        get() = properties.entries.asSequence().map { it.toPair() }
+    override val entries: Sequence<BundleEntry<*>>
+        get() = properties.entries.asSequence().map { (p, v) -> BundleEntry(p, v) }
 
-    override fun <Read : Any> hasProperty(permission: Read, property: Property<*, Read, *>): Boolean =
-        property in properties
+    override fun hasProperty(property: Property<*, *>): Boolean = property in properties
 
-    override fun hasProperty(property: Property<*, Any, *>): Boolean = hasProperty(Any(), property)
-
-    @Suppress("UNCHECKED_CAST")
-    override fun <Read : Any, T> get(permission: Read, property: Property<out T, Read, *>): T {
+    override fun <T : Any> get(property: Property<out T, *>): T {
         val value = properties[property] as T?
-        return value ?: property.default
+        return value ?: property.default ?: throw NoSuchElementException("No value for $property")
     }
 
-    override fun <Read : Any, T> get(
-        permission: Read,
-        property: ReactiveProperty<out T, Read, *>
-    ): ReactiveValue<T> {
-        val value = get(permission, property as Property<out T, Read, *>)
-        return getReactive(property, value)
-    }
-
-    override fun <T> get(property: Property<out T, Any, *>): T = get(Any(), property)
-
-    override fun <T> get(property: ReactiveProperty<out T, Any, *>): ReactiveValue<T> {
-        val value = get(property as Property<out T, Any, *>)
-        return getReactive(property, value)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    override fun <Write : Any, T> set(write: Write, property: Property<in T, *, Write>, value: T) {
-        val old = properties[property]
-        properties[property] = value
-        if (property is ReactiveProperty) {
-            change.fire(BundleChange(this, property, old as T?, value))
-            managed[property]?.reactive?.set(value)
-        }
-    }
-
-    override fun <T> set(property: Property<in T, *, Any>, value: T) {
-        set(Any(), property, value)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun <Read : Any, T> getReactive(
-        property: ReactiveProperty<out T, Read, *>,
-        value: T
-    ): ReactiveValue<T> {
+    override fun <T : Any> getReactive(property: Property<out T, *>): ReactiveValue<T> {
+        if (property.default == null) throw NoSuchElementException("$property has no default value")
+        val value = get(property)
         val reactive = managed[property]?.reactive
         return if (reactive == null) {
             val new = reactiveVariable(value)
-            managed[property] = new.weak as WeakReactive<ReactiveVariable<Any?>>
+            managed[property] = new.weak as WeakReactive<ReactiveVariable<Any>>
             new
         } else reactive as ReactiveValue<T>
     }
 
-    override fun <Read : Any, Write : Read> delete(permission: Write, property: Property<*, Read, Write>) {
-        properties.remove(property) ?: throw NoSuchElementException("Cannot delete $property")
-        if (property is ReactiveProperty) {
+    override fun <P : Permission, T : Any> set(permission: P, property: Property<in T, P>, value: T) {
+        property.checkWriteAccess(permission, value)
+        val old = properties[property]
+        if (value == old) return
+        properties[property] = value
+        change.fire(BundleChange(this, property, old as T?, value))
+        if (property in managed) {
+            managed[property]?.reactive?.set(value)
+        }
+    }
+
+    override fun <P : Permission> delete(permission: P, property: Property<*, P>) {
+        property.checkWriteAccess(permission, null)
+        val old = properties.remove(property) ?: throw NoSuchElementException("Cannot delete $property")
+        change.fire(BundleChange(this, property as Property<Any, *>, old, property.default))
+        if (property in managed) {
             val v = managed[property]?.reactive
             if (v != null) {
-                val default = property.default
+                val default = property.default ?: throw NoSuchElementException("No value for $property")
                 v.set(default)
             }
         }
     }
 
-    override fun delete(property: Property<*, Any, Any>) {
-        delete(Any(), property)
+    inner class Builder : BundleBuilder {
+        override fun <T : Any> set(property: Property<T, *>, value: T) {
+            properties[property] = value
+        }
     }
 }

@@ -4,25 +4,41 @@
 
 package bundles
 
+import reaktive.Observer
+import reaktive.event.*
+import kotlin.reflect.KClass
+import kotlin.reflect.full.allSuperclasses
+
 /**
- * A property change handler can be used to dynamically (yet with type-safety) register listeners
- * dependent on a context of type [Ctx] for the properties.
+ * A property change handler can be used to observe the values of properties in a given context.
  */
-class PropertyChangeHandler<Ctx : Any> {
-    private val listeners = mutableMapOf<Property<*, *, *>, MutableSet<(Ctx, Any?) -> Unit>>()
+class PropertyChangeHandler {
+    private val events = mutableMapOf<KClass<*>, MutableMap<Property<*, *>, BiEvent<Any, Any>>>()
 
     /**
      * Register a [handler] for the case that the given [property] changes.
-    */
-    fun <T> handle(property: Property<T, *, *>, handler: (Ctx, new: T) -> Unit) {
+     */
+    fun <Ctx : Any, T : Any> observe(
+        ctx: KClass<out Ctx>,
+        property: Property<T, *>,
+        handler: (Ctx, new: T) -> Unit
+    ): Observer {
+        val ev = events.getOrPut(ctx) { mutableMapOf() }.getOrPut(property) { biEvent() }
         @Suppress("UNCHECKED_CAST")
-        handler as (Ctx, Any?) -> Unit
-        val set = listeners.getOrPut(property) { mutableSetOf() }
-        set.add(handler)
+        return ev.stream.observe { context: Any, value: Any ->
+            handler(context as Ctx, value as T)
+        }
     }
 
-    internal fun valueChanged(context: Ctx, property: Property<*, *, *>, new: Any?) {
-        val set = listeners[property] ?: return
-        set.forEach { listener -> listener.invoke(context, new) }
+    /**
+     * Let this [PropertyChangeHandler] notify all the handlers associated with the given [context] and the [property].
+     */
+    fun <Ctx : Any, T : Any> valueChanged(context: Ctx, property: Property<in T, *>, new: T) {
+        val cls = context::class
+        for (c in cls.allSuperclasses + cls) {
+            val forCtx = events[c] ?: continue
+            val ev = forCtx[property] ?: continue
+            ev.fire(context, new)
+        }
     }
 }
