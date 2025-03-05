@@ -16,14 +16,12 @@ plugins {
     id 'com.github.nkb03.hextant-library' version '0.1-SNAPSHOT'
 }
 
-group 'com.github.nkb03'
+group 'de.schleifenkauz'
 version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
-    maven {
-        url 'https://oss.sonatype.org/content/repositories/snapshots'
-    }
+    mavenLocal()
 }
 
 dependencies {

@@ -34,7 +34,7 @@ import reaktive.value.*
     override fun <T : Any> getReactive(property: Property<out T, *>): ReactiveValue<T> {
         if (property.default == null) throw NoSuchElementException("$property has no default value")
         val value = get(property)
-        val reactive = managed[property]?.reactive
+        val reactive = managed[property]?.get()
         return if (reactive == null) {
             val new = reactiveVariable(value)
             managed[property] = new.weak as WeakReactive<ReactiveVariable<Any>>
@@ -49,7 +49,7 @@ import reaktive.value.*
         properties[property] = value
         change.fire(BundleChange(this, property, old as T?, value))
         if (property in managed) {
-            managed[property]?.reactive?.set(value)
+            managed[property]?.get()?.set(value)
         }
     }
 
@@ -58,7 +58,7 @@ import reaktive.value.*
         val old = properties.remove(property) ?: throw NoSuchElementException("Cannot delete $property")
         change.fire(BundleChange(this, property as Property<Any, *>, old, property.default))
         if (property in managed) {
-            val v = managed[property]?.reactive
+            val v = managed[property]?.get()
             if (v != null) {
                 val default = property.default ?: throw NoSuchElementException("No value for $property")
                 v.set(default)
