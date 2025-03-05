@@ -29,8 +29,15 @@ dependencies {
     testRuntimeOnly 'org.spekframework.spek2:spek-runner-junit5:2.0.9'
 }
 
-sourceCompatibility = 17
-
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            artifact kotlinSourcesJar
+        }
+    }
+}
+sourceCompatibility = 19
 compileKotlin {
     kotlinOptions.jvmTarget = 19
     kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.RequiresOptIn"
