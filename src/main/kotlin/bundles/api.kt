@@ -98,6 +98,11 @@ fun <T : Any> Bundle.delete(property: PublicProperty<T>) {
     delete(Public, property)
 }
 
+fun <T: Any> Bundle.withDefault(property: PublicProperty<T>, defaultValue: T): Bundle {
+    if (!hasProperty(property)) set(property, defaultValue)
+    return this
+}
+
 /**
  * [SerializersModule] that defines a serializer for [Bundle].
  */
