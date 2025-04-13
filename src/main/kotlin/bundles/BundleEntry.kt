@@ -7,7 +7,8 @@ package bundles
 import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
-import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.full.starProjectedType
 
 /**
  * An entry in a [Bundle].
@@ -32,7 +33,7 @@ data class BundleEntry<out T : Any>(val property: Property<out T, *>, val value:
             encoder.encodeStructure(descriptor) {
                 encodeSerializableElement(descriptor, 0, propertySerializer, value.property)
                 val valueSerializer = if (value.property is TypeSafeProperty) {
-                    value.property.propertyType.serializer() as KSerializer<Any>
+                    serializer(value.property.propertyType) as KSerializer<Any>
                 } else {
                     encodeStringElement(descriptor, 1, value.value.javaClass.name)
                     value.value::class.serializer() as KSerializer<Any>
@@ -43,20 +44,21 @@ data class BundleEntry<out T : Any>(val property: Property<out T, *>, val value:
         override fun deserialize(decoder: Decoder): BundleEntry<*> =
             decoder.decodeStructure(descriptor) {
                 lateinit var property: Property<*, *>
-                lateinit var valueClass: KClass<*>
+                lateinit var valueType: KType
                 lateinit var value: Any
                 while (true) {
                     when (val index = decodeElementIndex(descriptor)) {
                         0 -> {
                             property = decodeSerializableElement(descriptor, 0, propertySerializer)
-                            if (property is TypeSafeProperty) valueClass = property.propertyType
+                            if (property is TypeSafeProperty) valueType = property.propertyType
                         }
                         1 -> {
                             val valueClassName = decodeStringElement(descriptor, 1)
-                            valueClass = Thread.currentThread().contextClassLoader.loadClass(valueClassName).kotlin
+                            valueType = Thread.currentThread().contextClassLoader.loadClass(valueClassName)
+                                .kotlin.starProjectedType
                         }
                         2 -> {
-                            val ser = valueClass.serializer()
+                            val ser = serializer(valueType) as KSerializer<Any>
                             value = decodeSerializableElement(descriptor, 2, ser)
                         }
                         CompositeDecoder.DECODE_DONE -> break

@@ -11,11 +11,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.UseSerializers
 import kotlin.reflect.KClass
+import kotlin.reflect.KType
 
 @Serializable
 @PublishedApi internal class TypeSafeProperty<T : Any, in P : Permission>(
     override val name: String,
-    internal val propertyType: KClass<T>,
+    override val propertyType: KType,
     private val permissionClass: KClass<in P>,
     @Transient override val default: T? = null,
 ) : AbstractProperty<T, P>() {
@@ -27,7 +28,10 @@ import kotlin.reflect.KClass
 
     override fun checkWriteAccess(permission: P, value: T?) {
         check(permissionClass.isInstance(permission)) { "$permission is not an instance of $permissionClass" }
-        if (value != null) check(propertyType.isInstance(value)) { "$value is not an instance of $propertyType" }
+        if (value != null) {
+            val klass = propertyType.classifier as KClass<*>
+            check(klass.isInstance(value)) { "$value is not an instance of $propertyType" }
+        }
     }
 
     companion object {

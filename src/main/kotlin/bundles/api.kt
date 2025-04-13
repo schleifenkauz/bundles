@@ -10,6 +10,7 @@ import kotlinx.serialization.modules.*
 import kotlin.properties.ReadOnlyProperty
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
+import kotlin.reflect.typeOf
 
 /**
  * Public permission that is granted to all modules.
@@ -32,7 +33,7 @@ typealias PublicProperty<T> = Property<T, Public>
 typealias ReadonlyProperty<T> = Property<T, Readonly>
 
 inline fun <reified T : Any, reified P : Permission> property(name: String, default: T? = null): Property<T, P> =
-    if (runtimeTypeSafety) TypeSafeProperty(name, T::class, P::class, default) else SimpleProperty(name, default)
+    if (runtimeTypeSafety) TypeSafeProperty(name, typeOf<T>(), P::class, default) else SimpleProperty(name, default)
 
 inline fun <reified T : Any> publicProperty(name: String, default: T? = null): PublicProperty<T> =
     property(name, default)
@@ -100,6 +101,16 @@ fun <T : Any> Bundle.delete(property: PublicProperty<T>) {
 
 fun <T: Any> Bundle.withDefault(property: PublicProperty<T>, defaultValue: T): Bundle {
     if (!hasProperty(property)) set(property, defaultValue)
+    return this
+}
+
+fun <T : Any> Bundle.withDefault(vararg properties: PublicProperty<T>): Bundle {
+    for (property in properties) {
+        if (!hasProperty(property)) {
+            val value = property.default ?: error("$property has no default value!")
+            set(property, value)
+        }
+    }
     return this
 }
 

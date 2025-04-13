@@ -4,6 +4,8 @@
 
 package bundles
 
+import kotlin.reflect.KType
+
 internal abstract class AbstractProperty<T : Any, in P : Permission> : Property<T, P> {
     override fun equals(other: Any?): Boolean = when {
         this === other                   -> true
@@ -13,4 +15,7 @@ internal abstract class AbstractProperty<T : Any, in P : Permission> : Property<
     }
 
     override fun hashCode(): Int = name.hashCode()
+
+    override val propertyType: KType?
+        get() = null
 }
